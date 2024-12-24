@@ -1,5 +1,0 @@
-{
-	"token": "enter bot token here or environment variable thing",
-	"clientId": "enter the applicaiton id in discord developmet portal under general information",
-	"guildId": "enter the server id here"
-}
