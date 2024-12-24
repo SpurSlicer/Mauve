@@ -21,13 +21,11 @@ It basically does everything for you and just needs the roles and admin info whi
 ### Execution
 **Windows**: `./run.bat` in powershell or `run.bat` in cwd \
 **Linux**: `./run.sh`
+- If it throws `Permissoin denied`, run `chmod +x run.sh` and try again
 ### Requirements
 This bot uses `node.js`... so please install that first and foremost.
 
-All you need are the following packages installed with npm at the global level: \
-&ensp;├── **discord.js** -> npm install discord.js \
-&ensp;├── **sequelize** -> npm install sequelize \
-&ensp;└── **sqlite3** -> npm install sqlite3
+For npm packages, run `npm install`
 ### JSON Organization - role_info.json
 All timed role commands are auto generated from the `./jsons/role_info.json` file. Here is a breakdown of how it works:
 ```json
