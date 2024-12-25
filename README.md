@@ -38,13 +38,13 @@ All timed role commands are auto generated from the `./jsons/role_info.json` fil
         {
 			"role_name": "<role name>",
 			"role_id": "<role id>",
-			"role_duration": <integer in milliseconds>,
+			"role_duration": <integer in milliseconds>
 		},	
         ...	
 		{
 			"role_name": "<role name>",
 			"role_id": "<role id>",
-			"role_duration": <integer in milliseconds>,
+			"role_duration": <integer in milliseconds>
             "qualifiers":
             [
 				{
