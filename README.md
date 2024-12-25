@@ -18,16 +18,20 @@ A discord bot made in with node.js (using CommonJS). This bot creates a local da
 - Just run `./run.bat` while in the bot's root directory to start it 
 
 It basically does everything for you and just needs the roles and admin info while making the addition of new commands and current command changes as simple as possible.
-### Execution
-**Windows**: `./run.bat` in powershell or `run.bat` in cwd \
-**Linux**: `./run.sh`
-- If it throws `Permissoin denied`, run `chmod +x run.sh` and try again
 ### Requirements
 This bot uses `node.js`... so please install that first and foremost.
 
 For npm packages, run `npm install`
+### Execution
+First, run `touch jsons/admins.json; touch jsons/config.json; touch role_info.json` and enter in the information according to the templates below (copy, paste, and fill in). \
+\
+For actually running the bot, do one of the following: 
+- **Windows**: `./run.bat` in powershell or `run.bat` in cwd 
+- **Linux**: `./run.sh`
+	- If it throws `Permissoin denied`, run `chmod +x run.sh` and try again
 ### JSON Organization - role_info.json
-All timed role commands are auto generated from the `./jsons/role_info.json` file. Here is a breakdown of how it works:
+All timed role commands are auto generated from the `./jsons/role_info.json` file. Here is a breakdown of how it works: \
+&ensp;&ensp;NOTE: Delete the <> when filling stuff in as well as the template text as well as the ... (these are here to show arrays)
 ```json
 {
 	"roles": [
