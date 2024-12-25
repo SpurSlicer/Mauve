@@ -123,4 +123,4 @@ You can copy the template above for making timed role commands (it's also in the
 - `?<qualifier>` \
 &ensp;&ensp;&ensp;&ensp;&ensp; **NOTE**: If `?<time>` is not blank, the `?<qualifier>` parameter will be ignored entirely
 	- `[BLANK]`: Gives the role for `role_duration` milliseconds as set in the json.
-	- `<Qualifier>`- Gives the role for the duration specified for that given qualifier in the json
+	- `<qualifier>`- Gives the role for the duration specified for that given qualifier in the json
