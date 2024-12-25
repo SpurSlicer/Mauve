@@ -1,4 +1,4 @@
-jsons/*.json
+jsons/*
 database/database.sqlite
 node_modules/*
 
