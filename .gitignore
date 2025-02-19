@@ -1,6 +1,24 @@
-jsons/*
-database/database.sqlite
-node_modules/*
-
+### NODE ###
 package-lock.json
 node_modules/*
+
+### GUILDS ###
+guilds/*
+!guilds/.gitkeep
+
+### DATA ###
+data/banished/*
+!data/banished/.gitkeep
+data/cache/*
+!data/cache/.gitkeep
+data/databases/*
+!data/databases/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+
+### MISC ###
+todo.md
+main_config.json
+eslint.config.mjs
+.vscode/
+_broken/*

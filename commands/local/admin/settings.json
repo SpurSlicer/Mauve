@@ -1,0 +1,8 @@
+{
+  "selective_commands": {
+    "automated_message_editing": false,
+    "timed_roles": false
+  },
+  "lock": true,
+  "bot_name": ""
+}
