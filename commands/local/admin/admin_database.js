@@ -1,7 +1,6 @@
 // -----------------------IMPORTS-----------------------
 const { M_BaseDatabase } = require("../../../src/classes/base_database");
 const { DataTypes } = require('sequelize');
-const { getFoldernameByFilename, getFilename } = require ('../../../src/helpers/general_helper');
 const { getPrettyJsonText } = require("../../../src/helpers/json_helper");
 const { basename } = require("node:path");
 
@@ -22,7 +21,7 @@ const ADMIN_POSITIONS = ['ADMIN', 'OWNER', 'SERVER_OWNER'];
 /**
  * Admin perms database.
  */
-class AdminDatabase extends M_BaseDatabase {
+class M_AdminDatabase extends M_BaseDatabase {
 	/**
 	 * @param {Client} client 
 	 * @param {Guild} guild 
@@ -157,6 +156,6 @@ class AdminDatabase extends M_BaseDatabase {
 
 // -----------------------EXPORTS-----------------------
 module.exports = { 
-				   m_database: AdminDatabase,
-				   ADMIN_POSITIONS
+					M_AdminDatabase,
+				   	ADMIN_POSITIONS
 				};

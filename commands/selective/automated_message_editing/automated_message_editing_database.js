@@ -2,7 +2,7 @@
 const { M_BaseDatabase } = require("../../../src/classes/base_database");
 const { DataTypes } = require('sequelize');
 const { watch, readFileSync, FSWatcher } = require(`node:fs`);
-const { getFoldernameByFilename, getFilename, getFilePath } = require ('../../../src/helpers/general_helper');
+const { getFilename, getFilePath } = require ('../../../src/helpers/general_helper');
 const { jsonifyFile } = require("../../../src/helpers/json_helper");
 const { generateLink } = require("../../../src/helpers/discord_helper");
 const { basename } = require("node:path");
@@ -21,7 +21,7 @@ const FOLDERNAME = __filename.match(/.*\/(.*)\/.*/)[1];
 /**
  * Automated message command group database.
  */
-class AutomatedMessageDatabase extends M_BaseDatabase {
+class M_AutomatedMessageDatabase extends M_BaseDatabase {
 	/**
 	 * @param {Client} client 
 	 * @param {Guild} guild 
@@ -335,4 +335,4 @@ class AutomatedMessageDatabase extends M_BaseDatabase {
 };
 
 // -----------------------EXPORTS-----------------------
-module.exports = { AutomatedMessageDatabase };
+module.exports = { M_AutomatedMessageDatabase };

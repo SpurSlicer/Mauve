@@ -124,4 +124,4 @@ class M_PreferencesDatabase extends M_BaseDatabase {
 };
 
 // -----------------------EXPORTS-----------------------
-module.exports = { m_database: M_PreferencesDatabase };
+module.exports = { M_PreferencesDatabase };

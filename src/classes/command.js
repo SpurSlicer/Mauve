@@ -69,6 +69,7 @@ class M_Command {
 
 
 	async setup(database_script_path, client, guild=null) { 
+		const log_marker_name = 'SETUP';
 		if (this.database_name != undefined) {
 			if (this.databases.get(this.database_name) == undefined) {
 				const database_imports = require(database_script_path.match(/(.*)\..*/)[1]);
@@ -77,15 +78,20 @@ class M_Command {
 					const lower_case_property = property.toLowerCase();
 					if (lower_case_property.startsWith("m_") && lower_case_property.endsWith("database")) {
 						database = new database_imports[property](client, guild);
+						this.logger.debug(`"${this.database_name}" is required but hasn't been made yet.`, {text: log_marker_name, colors: ['function']});
 						break;
 					}
 				}
-				if (database == null) throw new Error(`database of name "${this.database_name}" doesn't exist!`);
+				if (database == null) throw new Error(`database of name "${this.database_name}" doesn't exist!`)
+				this.logger.debug(`Making new database of type "${this.database_name}"...`, {text: log_marker_name, colors: ['function']});
 				await database.setup();	
 				this.databases.set(this.database_name, database);
+				this.logger.debug(`Done`, {text: log_marker_name, colors: ['function']});
 			} else {
-				this.logger.debug(`No database needed`);
+				this.logger.debug(`Database "${this.database_name}" already exists. Skipping...`, {text: log_marker_name, colors: ['function']});
 			}
+		} else {
+			this.logger.debug(`No database needed.`, {text: log_marker_name, colors: ['function']});
 		}
 	}
 }
