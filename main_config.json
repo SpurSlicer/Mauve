@@ -1,6 +1,6 @@
 {
-  "token": "<TOKEN?",
-  "clientId": "<CLIENT_ID",
+  "token": "<TOKEN>",
+  "clientId": "<CLIENT_ID>",
   "devs": [
     {
       "user_id": "<USER_ID>"
