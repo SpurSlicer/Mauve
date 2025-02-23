@@ -204,7 +204,9 @@ Mauve has 3 levels of moderation permissions:
 ```
 ### Classes
 Note: Class names are formatted as `M_ClassName` to prevent naming conflicts with Discord.js.
+
 <img src="./_documentation/classes_uml.png">
+
 - **base_database:** This provides the necessary Sqlite construction process to be called with `super` in every Database to promote code reusage.
 - **base:** This simply enfoces the implementation of the `setup` and `takedown` methods.
 - **bot:** This is the main class of the bot instance.
@@ -221,7 +223,7 @@ Note: Class names are formatted as `M_ClassName` to prevent naming conflicts wit
 ### Tools
 **Tools** are external scripts used to aid or provide information for the general bot process.
 - **generate_main_config:** This sets up the `./main_config.json` template for bot developers to user for setup.
-- **line_count:** This acts as a utility and simply counts the number of lines in every JavaScript file that the bot developer has written (5,863 as of writing this).
+- **line_count:** This acts as a utility and simply counts the number of lines in every JavaScript file that the bot developer has written (5,888 as of writing this).
 - **mass_delete:** This deletes every occurance of the filename(s) provided in the command line argument throughout the entire bot directory via recursive file searching.
 - **update_guilds:** This is used to verify that every JSON in every guild has the correct information via comparing it to all template JSONs found. Template JSONs are gathered via recursively searching through every command directory. Any missing properties in server JSONs are added back in with the value provided in the template. 
   - Note: This is the only script called directly from the bot.
