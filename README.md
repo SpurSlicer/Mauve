@@ -197,6 +197,7 @@ Mauve has 3 levels of moderation permissions:
     │   ├── json_helper.js
     │   └── ...
     └── tools/
+        ├── generate_main_config.js
         ├── line_count.js
         ├── mass_delete.js
         └── update_guilds.js
@@ -219,12 +220,15 @@ Note: Class names are formatted as `M_ClassName` to prevent naming conflicts wit
 - **json_helper:** This focuses on parsing, merging, reading, validating, and cleaning JSON files for servers. Almost every purpose listed before this uses recursion and RegEx extensively for efficiency and ease of use. 
 ### Tools
 **Tools** are external scripts used to aid or provide information for the general bot process.
+- **generate_main_config:** This sets up the `./main_config.json` template for bot developers to user for setup.
 - **line_count:** This acts as a utility and simply counts the number of lines in every JavaScript file that the bot developer has written (5,863 as of writing this).
 - **mass_delete:** This deletes every occurance of the filename(s) provided in the command line argument throughout the entire bot directory via recursive file searching.
 - **update_guilds:** This is used to verify that every JSON in every guild has the correct information via comparing it to all template JSONs found. Template JSONs are gathered via recursively searching through every command directory. Any missing properties in server JSONs are added back in with the value provided in the template. 
   - Note: This is the only script called directly from the bot.
 ## Compilation & Execution
 1. Create a new application in the [discord developer portal](https://discord.com/developers) and save the `token` and `clientID` into `./main_config.json` in its respective properties.
-2. Enter your user ID and the guild ID (right click on the server icon in the server column and click `copy ID` (you may need to turn on developer mode in settings)) and enter your user ID into the `user_id` property in the `devs` array and the guild ID into `test_guild_id`.
-3. Run `npm install` (if you don't have node.js, download it [here](https://nodejs.org))
+2. Download node.js from [here](https://nodejs.org).
+3. Run `npm install`.
+3. Run `node ./src/tools/generate_main_config` from the repository root to create your config file.
+4. In `./main_config`, enter your user ID and the guild ID (right click on the server icon in the server column and click `copy ID` (you may need to turn on developer mode in settings)) and enter your user ID into the `user_id` property in the `devs` array and the guild ID into `test_guild_id`.
 4. Run `run.bat` or `run.sh` depending on your OS and try it out!
