@@ -231,6 +231,6 @@ Note: Class names are formatted as `M_ClassName` to prevent naming conflicts wit
 1. Create a new application in the [discord developer portal](https://discord.com/developers) and save the `token` and `clientID` into `./main_config.json` in its respective properties.
 2. Download node.js from [here](https://nodejs.org).
 3. Run `npm install`.
-3. Run `node ./src/tools/generate_main_config` from the repository root to create your config file.
-4. In `./main_config`, enter your user ID and the guild ID (right click on the server icon in the server column and click `copy ID` (you may need to turn on developer mode in settings)) and enter your user ID into the `user_id` property in the `devs` array and the guild ID into `test_guild_id`.
-4. Run `run.bat` or `run.sh` depending on your OS and try it out!
+4. Run `node ./src/tools/generate_main_config` from the repository root to create your config file.
+5. In `./main_config`, enter your user ID and the guild ID (right click on the server icon in the server column and click `copy ID` (you may need to turn on developer mode in settings)) and enter your user ID into the `user_id` property in the `devs` array and the guild ID into `test_guild_id`.
+6. Run `run.bat` or `run.sh` depending on your OS and try it out!
