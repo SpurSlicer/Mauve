@@ -6,9 +6,8 @@ const { M_Logger } = require("./logger");
 
 /**
  * Base database class that all other databases inherit from.
- * @implements {M_Base}
  */
-class M_BaseDatabase extends M_Base {
+class M_BaseDatabase {
     /**
 	 * @param {Client} client Discord bot client.
 	 * @param {(Guild|null)} [guild=null] The guild the database is for. If the database is for the entire bot (i.e., not command-centered), this should be null.
@@ -40,7 +39,7 @@ class M_BaseDatabase extends M_Base {
 
         /**
          * A map of tables used by the database indexed by a custom name.
-         * @type {Map<String, Model>}
+         * @type {Map<String, Model>}uml_test
          */
         this.tables = null;
 

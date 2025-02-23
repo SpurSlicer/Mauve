@@ -30,7 +30,7 @@ module.exports = {
 						.setDescription('Choose a file.')
 						.setRequired(true)
 						.setChoices(
-							getAllFilenames(this.guild.id, true, true))
+							getAllFilenames(command_class.guild.id, true, true))
 				)
 				.addStringOption((option) => 
 					option.setName('identifier')
