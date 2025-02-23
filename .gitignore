@@ -18,7 +18,7 @@ data/logs/*
 
 ### MISC ###
 todo.md
-# main_config.json
+main_config.json
 eslint.config.mjs
 .vscode/
 _broken/*
