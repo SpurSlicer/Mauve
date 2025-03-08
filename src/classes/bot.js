@@ -1,5 +1,5 @@
 // -----------------------IMPORTS-----------------------
-const { Client, Events, GatewayIntentBits, REST, Routes, ActivityType, CommandInteraction, CacheType, Guild, GuildEmoji, Role, Sticker, GuildMember, GuildChannel } = require('discord.js');
+const { Client, Events, GatewayIntentBits, REST, Routes, ActivityType, CommandInteraction, CacheType, Guild, GuildEmoji, Role, Sticker, GuildMember, GuildChannel, Partials } = require('discord.js');
 const { DefaultWebSocketManagerOptions: { identifyProperties } } = require("@discordjs/ws");
 const { getToken, getClientId, reply } = require('../helpers/discord_helper');
 const { M_Logger } = require('./logger');
@@ -37,6 +37,11 @@ class M_Bot extends M_Base {
                 GatewayIntentBits.GuildMessages,
                 GatewayIntentBits.GuildMessageReactions
             ],
+            partials: [
+                Partials.Message,
+                Partials.Channel,
+                Partials.Reaction
+            ]
         });
 
         /**
@@ -502,7 +507,7 @@ class M_Bot extends M_Base {
         };   
         this.client.on(Events.GuildStickerCreate, async (sticker) => await stickerCallback(sticker, Events.GuildStickerCreate));
         this.client.on(Events.GuildStickerDelete, async (sticker) => await stickerCallback(sticker, Events.GuildStickerDelete));
-                /**
+        /**
          * Refreshes stickers cache for the guild the event was triggered in.
          * @param {Sticker} sticker The sticker that has undergone some sort of change.
          * @param {Events} event Either `GuildEmojiCreate`, `GuildEmojiDelete`, or `GuildEmojiUpdate`.
@@ -519,6 +524,22 @@ class M_Bot extends M_Base {
         this.client.on(Events.MessageCreate, async (message) => await messageCallback(message, Events.MessageCreate));
         this.client.on(Events.MessageDelete, async (message) => await messageCallback(message, Events.MessageDelete));
         this.client.on(Events.MessageUpdate, async (message) => await messageCallback(message, Events.MessageUpdate));
+        /**
+         * Refreshes stickers cache for the guild the event was triggered in.
+         * @param {Sticker} sticker The sticker that has undergone some sort of change.
+         * @param {Events} event Either `GuildEmojiCreate`, `GuildEmojiDelete`, or `GuildEmojiUpdate`.
+        */            
+        const reactCallback = async (message_reaction, event) => {
+            await generalEventCallback(
+                async () => {
+                    /*await*/ this.#messageReactHandler(message_reaction, event);
+                    // this.logger.log(`Event triggered in "${message.guild.name}". Running...`, [{ text: event.toUpperCase(), colors: "variable" }]);        
+                    // if (message.guild != null && message.guild != undefined) await message.guild.channels.cache.get(message.channelId).messages.fetch();
+                    return message_reaction;
+                }, message_reaction, event);  
+        };   
+        this.client.on(Events.MessageReactionAdd, async (message_reaction) => await reactCallback(message_reaction, Events.MessageReactionAdd));
+        this.client.on(Events.MessageReactionRemove, async (message_reaction) => await reactCallback(message_reaction, Events.MessageReactionRemove));
         /**
          * Runs once the client is finished setting up on Discord's end. It does the following:
          *  1. Refreshes guild cache
@@ -546,6 +567,7 @@ class M_Bot extends M_Base {
                     }
                     await this.client.global_databases.get('dev').orientGuilds();    
                     this.startStatusInterval();
+
                     this.logger.log(`Completed in ${getPrettyTime(new Date().getTime() - initial_time, ['seconds', 'milliseconds'])}.`, [{ text: event.toUpperCase(), colors: "variable" }]);
                     this.status = true;        
                     return client;
@@ -612,20 +634,25 @@ class M_Bot extends M_Base {
 
     /*eslint no-fallthrough: "off"*/
     async #parseMessageForAction(message, event) {
-        if (event == Events.MessageDelete) return;
+        if (event == Events.MessageDelete || message.webhookId != null) return;
         this.logger.log(message.content, { text: 'PARSE MESSAGE FOR ACTION', colors: ['function']});
         const dev_database = this.client.global_databases.get('dev');
+        let message_content_cpy = message.content;
         let emoji_info = null;
         let emoji_match = null;
         let emoji_obj = null;
+        let emoji_res = null;
         let prev_send_loc = null;
         let was_something_sent = false;
+        let needs_webhook = false;
+        let webhook = null;
         let send = async () => {};
+        let checkIfNeedsWebhook = () => {};
         // console.log(message.content);
         try {
             switch (true) {
-            // "^:emoji: [yyyyy]"
-            // "^<[a]:emoji:xxxxx> [yyyyy]"
+
+            // CARET REACTIOnS
                 case message.content.startsWith('^'):
                     emoji_match = message.content.slice(1).matchAll(/[^\s<>^]*/g);
                     emoji_match = [...emoji_match].filter(el => el != '' && el?.[0]).map(el => el[0]);
@@ -679,10 +706,114 @@ class M_Bot extends M_Base {
                     }
                     if (was_something_sent) await message.delete();
                     break;
+            
+            // WEBHOOK REACTIONS
+                case /(?:(?::[^:\s]+:)|(?:\d+))/.test(message.content):
+                    if (message.member?.premiumSince != null) return;
+                    checkIfNeedsWebhook = (emoji_info_v) => {
+                        const result = emoji_info_v.animated || emoji_info_v.guild_id != message?.guild?.id;
+                        if (!needs_webhook && result) needs_webhook = true;
+                        return result;
+                    }
+                    emoji_match = [...message.content.matchAll(/(?:<?a?:(?:[^:\s]+:\d*:?>?)|(?:\d+))/g)].map(el => el[0]).filter(el => el.length > 0).reduce((acc, el) => {
+                        if (!acc.includes(el)) acc.push(el); return acc;
+                    }, []);
+                    // console.log(`${message.content} passed with matches ${emoji_match}!`);
+                    for (const emoji of emoji_match) {
+                        try {
+                            // console.log("current str:", message_content_cpy);
+                            if (/<a?:[^\s:]+:\d+>/.test(emoji)) {
+                                emoji_info = await dev_database.getEmojiById(emoji.match(/\d+/)[0]);
+                                checkIfNeedsWebhook(emoji_info);
+                            }
+                            if (!isNaN(parseInt(emoji.replaceAll(":", "").trim(), 10))) {
+                                emoji_info = await dev_database.getEmojiById(emoji.replaceAll(":", "").trim());
+                                emoji_res = checkIfNeedsWebhook(emoji_info);
+                                if (emoji_res) {
+                                    message_content_cpy = message_content_cpy.replaceAll(emoji, `<${(emoji_info.animated) ? "a" : ""}:${emoji_info.name}:${emoji_info.id}>`);
+                                }
+                                // console.log(`found emoji by Id`, emoji_info.name);
+                            } else {
+                                emoji_info = await dev_database.getEmojiByName(emoji.replaceAll(":", "").trim());
+                                emoji_res = checkIfNeedsWebhook(emoji_info);
+                                if (emoji_res) {
+                                    message_content_cpy = message_content_cpy.replaceAll(emoji, `<${(emoji_info.animated) ? "a" : ""}:${emoji_info.name}:${emoji_info.id}>`);
+                                }
+                                // console.log(`found emoji by Name`, emoji_info.name);
+                            }
+                        } catch (e) {
+                           this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); /*throw new Error('❔');*/
+                        }
+                    }
+                    // console.log(`RESULTS: needs webhook? ${needs_webhook}`, message_content_cpy);
+                    if (!needs_webhook) break;
+                    webhook = await message.channel.createWebhook({
+                        name: message.member.displayName,
+                        avatar: message.member.user.avatarURL(),
+                    });
+                    console.log(webhook);
+                    await message.delete();
+                    await webhook.send({
+                        content: message_content_cpy,
+                    })
+                    await webhook.delete();
             }
         } catch (e) {
             // await message.react(e.message);
             this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); }
+    }
+    async #messageReactHandler(message_reaction, event) {
+        // const message_reaction_emoji = message_reaction.emoji;
+        const is_x = (msg=message_reaction.emoji.name) => {
+            return (
+                (msg == '❌') ||
+                (msg == '❎') ||
+                (msg == '✖️') ||
+                (msg == '🗑️')
+            );
+        }
+        const is_spoiled = (msg=message_reaction.emoji.name) => {
+            return (
+                (msg == '⬛') ||
+                (msg == '◼️') ||
+                (msg == '◾') ||
+                (msg == '▪️')
+            );
+        }
+        const message = await this.client.guilds.cache.get(message_reaction.message.guildId).channels.cache.get(message_reaction.message.channelId).messages.fetch(message_reaction.message.id);
+        if (is_x() && event != Events.MessageReactionRemove) {
+            if (message.webhookId != null || message.author.id == this.client.user.id) {
+                await message.delete();
+                return;
+            }
+            // console.log(message_reaction.message.reactions);
+            // console.log((await message.reactions.cache.get(message_reaction.emoji.name).users.fetch()));
+        } else if (is_spoiled()) {
+            if (message.author.id == this.client.user.id) {
+                console.log("spoiling with", event)
+                if (event == Events.MessageReactionAdd) {
+                    console.log("doing stuff in spoil");
+                    if (message.content.startsWith('||') && message.content.endsWith('||')) return;
+                    await message.edit(`||${message.content}||`);
+                } else if (event == Events.MessageReactionRemove) {
+                    console.log("doing stuff in unspoil");
+                    let [start_index, end_index] = [0, message.content.length-1];
+                    for (let i = 0; i < message.content.length; i++) {
+                        let edit_flag = false;
+                        if (message.content[start_index] == '|') {
+                            start_index++;
+                            edit_flag = true;
+                        }
+                        if (message.content[end_index] == '|') {
+                            end_index--;
+                            edit_flag = true;
+                        }
+                        if (!edit_flag) break;
+                    }
+                    await message.edit(message.content.slice(start_index, end_index));
+                }
+            }
+        }
     }
 }
 
