@@ -1,6 +1,7 @@
 // -----------------------IMPORTS-----------------------
 const { readFileSync, readdirSync } = require('node:fs');
 const { fork } = require('node:child_process');
+const process = require('node:process');
 
 
 // -----------------------GLOBALS-----------------------
@@ -323,21 +324,21 @@ function getLogFileContents(path, interaction, is_client=false, guild_id=false) 
     if (!path.endsWith(".log")) path = path + ".log";
     let log_data = readFileSync(path, 'utf8');
     try {
-        const guild_ids = new Set(log_data.match(/guild_id:(\d*)/).slice(1));
+        const guild_ids = new Set([...log_data.matchAll(/guild_id:\d*/g)].map((el) => el[0].replace('guild_id:', '')));
         for (const guild_id of guild_ids) {
             if (is_client) log_data = log_data.replaceAll(`guild_id:${guild_id}`, interaction.guilds.cache.get(guild_id).name);
             else log_data = log_data.replaceAll(`guild_id:${guild_id}`, interaction.client.guilds.cache.get(guild_id).name);
         }
     } catch (e) { e == e;/*console.log(`[ERROR] [LOG CONTENTS] couldn't find guild ids`)*/ }
     try {
-        const role_ids = new Set(log_data.match(/role_id:(\d*)/).slice(1));
+        const role_ids = new Set([...log_data.matchAll(/role_id:\d*/g)].map((el) => el[0].replace('role_id:', '')));
         for (const role_id of role_ids) {
             if (is_client) log_data = log_data.replaceAll(`role_id:${role_id}`, interaction.guilds.cache.get(guild_id).roles.cache.get(role_id).name);
             else log_data = log_data.replaceAll(`role_id:${role_id}`, interaction.guild.roles.cache.get(role_id).name);
         }
     } catch (e) { e == e;/*console.log(`[ERROR] [LOG CONTENTS] couldn't find role ids`)*/ }
     try {
-        const user_ids = new Set(log_data.match(/user_id:(\d*)/).slice(1));
+        const user_ids = new Set([...log_data.matchAll(/user_id:\d*/g)].map((el) => el[0].replace('user_id:', '')));
         for (const user_id of user_ids) {
             if (is_client) log_data = log_data.replaceAll(`user_id:${user_id}`, interaction.guilds.cache.get(guild_id).users.cache.get(user_id).name);
             else log_data = log_data.replaceAll(`user_id:${user_id}`, interaction.guild.users.cache.get(user_id).name);
@@ -375,6 +376,7 @@ async function extractIdInfoFromMessage(interaction, message, purpose='user_id')
                 await interaction.client.guilds.fetch();
                 id = interaction.client.guilds.cache.find(guild => guild.name == message)?.id;
                 if (id == undefined) throw new Error(`couldn't find that guild. It might not exist anymore`);
+                return id;
             case "channel_id":
                 await interaction.guild.channels.fetch();
                 id = interaction.guild.channels.cache.find(channel => channel.name == message)?.id;

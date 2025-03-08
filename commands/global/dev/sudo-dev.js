@@ -29,6 +29,7 @@ module.exports = {
 							{ name: `Shutdown Bot`, value: `shutdown` },
 							{ name: `Restart Bot`, value: `restart` },
 							{ name: `Globally Lock Commands`, value: `lock` },
+							{ name: `Globally Unlock Commands`, value: `unlock` },
 							{ name: `Restrict to Test Guild`, value: `restrict` },
 							{ name: `Open to All Guilds`, value: `unrestrict` },
 							{ name: `View Guilds`, value: `guilds` },														
@@ -56,7 +57,7 @@ module.exports = {
 								await interaction.client.Bot.resetGlobalCommands();
 								await interaction.client.Bot.resetAllGuildCommands();
 								interaction.client.Bot.status = true;
-								await editReply(interaction, { content: `Updates complete:\n${getLogFileContents(`./cache/updates.log`, interaction)}` });
+								await editReply(interaction, { content: `Updates complete:\n${getLogFileContents(`./data/logs/updates.log`, interaction)}` });
 								break;
 							case "shutdown":
 								await reply(interaction, { content: `Shutting down...` });
@@ -66,7 +67,6 @@ module.exports = {
 							case "restart":
 								await reply(interaction, { content: `Restarting...` });
 								await restartBot();
-								console.log("here3");
 								process.exit(0);
 								break;
 							case "lock":
@@ -121,7 +121,9 @@ module.exports = {
 								await reply(interaction, { content: getPrettyJsonText(message, interaction) });
 								break;
 							case "view_blacklist":
-								await reply(interaction, { content: await database.viewBlacklist() });
+								if (interaction.guild == null) await reply(interaction, { content: await database.viewBlacklist(interaction) });
+								else await reply(interaction, { content: await database.viewBlacklist(interaction) });
+								
 								break;
 							case "view_main_config":
 								main_config_json = JSON.parse(readFileSync(`./main_config.json`, 'utf8'));

@@ -179,7 +179,7 @@ class M_Guild extends M_Base {
                 this.logger.log(`Commands are now ${(this.lock) ? "locked" : "unlocked"}.`, [{ text: log_marker_name_settings, colors: "variable"}]);
             }
             if (this.guild.members.cache.get(this.client.user.id).nickname != json.bot_name) {
-                await this.guild.members.cache.get(this.client.user.id).setNickname(json.bot_name);
+                await this.guild.members.cache.get(this.client.user.id).setNickname((typeof json.bot_name == 'object') ? this.client.user.username : json.bot_name);
                 this.logger.log(`Updated bot name to "${json.bot_name}".`, [{ text: log_marker_name_settings, colors: "variable"}]);
             }
             const selective_commands = json.selective_commands;
@@ -204,7 +204,7 @@ class M_Guild extends M_Base {
             if (need_selective_command_update) this.client.Bot.emit(`settings_update_${this.guild.id}`);
         }));
         for (const key of this.observer_fds.keys()) {
-            this.logger.log(`Started observer named "${key}".`, [{ text: log_marker_name, colors: "function"}], [{ text: log_marker_name, colors: "function"}]);
+            this.logger.log(`Started observer named "${key}".`, [{ text: log_marker_name, colors: "function"}]);
         }
     }
 
@@ -325,6 +325,8 @@ class M_Guild extends M_Base {
         if (dir.endsWith("/")) dir = dir.substring(0, dir.length-2);
         let command_cnt = 0;
         const command_file_names = readdirSync(dir, 'utf8');
+        const command_class_dir = dir.match(/.*\/([^/]*)/)[1];
+        this.guild.command_classes.set(command_class_dir, []);
         for (const command_file_name of command_file_names) {
             if (command_file_name == '.gitkeep') continue;
             if (!command_file_name.includes(".")) {
@@ -335,9 +337,9 @@ class M_Guild extends M_Base {
             if (access == null || access == undefined) continue;
             const filename = command_file_name.split(/\./g)[0];
             this.logger.log(`setting command "${filename}"...`, [{ text: log_marker_name, colors: "function"}]);
-            const command_class = await access[filename](this.client, this.guild);
-            this.guild.command_classes.set(filename, command_class);
-            for (const command of command_class.getCommands()) {
+            const command_set = await access[filename](this.client, this.guild);
+            this.guild.command_classes.set(command_class_dir, this.guild.command_classes.get(command_class_dir).concat(command_set));
+            for (const command of command_set.getCommands()) {
                 this.guild.commands.set(command.command_name, command);
                 command_cnt++;    
             }

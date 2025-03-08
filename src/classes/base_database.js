@@ -15,7 +15,6 @@ class M_BaseDatabase {
      * @param {String} foldername The directory name of where the database is. This will eventually become the name used to retrieve the database.
      */
     constructor(client, guild=null, filename, foldername) {
-        super();
         if (client == null && guild == null) {
 			throw new Error("[ERROR] [BASE_DATABASE] Both client and guild cannot be null!");
 		}

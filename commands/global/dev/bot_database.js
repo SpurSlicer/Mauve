@@ -6,6 +6,7 @@ const { getFoldernameByFilename, getFilename, fixGuildData } = require ('../../.
 const { M_Guild } = require("../../../src/classes/guild");
 const { getPrettyJsonText } = require("../../../src/helpers/json_helper");
 const { basename } = require("node:path");
+const { Events } = require("discord.js");
 
 /**
  * Name of the current file script
@@ -29,6 +30,7 @@ class M_BotDatabase extends M_BaseDatabase {
 		};
 		this.tables = new Map();
 		this.blacklist_table = null;
+		this.emojis_table = null;
 		// process.on('SIGINT', (code) => this.unwatchAll(true));
 		// process.on('SIGTERM', (code) => this.unwatchAll(true));
 	}
@@ -43,7 +45,27 @@ class M_BotDatabase extends M_BaseDatabase {
 				allowNull: false
 			},
 		}));
+		this.tables.set('Emojis', this.database.define('Emojis', {
+			guild_id: {
+				type: DataTypes.STRING,
+				allowNull: false
+			},
+			emoji_id: {
+				type: DataTypes.STRING,
+				allowNull: false
+			},
+			emoji_name: {
+				type: DataTypes.STRING,
+				allowNull: false,
+			},
+			is_animated: {
+				type: DataTypes.BOOLEAN,
+				default: false,
+				allowNull: false
+			}
+		}));
 		this.blacklist_table = this.tables.get('Blacklist');
+		this.emojis_table = this.tables.get('Emojis');
 		this.logger.log(`Generated "Blacklist" table.`, [{ text: log_marker_name, colors: "function"}]);	
 		try {
 			await this.database.sync();
@@ -64,10 +86,10 @@ class M_BotDatabase extends M_BaseDatabase {
 		const log_marker_name = 'BLACKLIST';
 		let status = null;
 		if ((await this.blacklist_table.findAll({ where: { guild_id: guild.id } })).length > 0) {
-			await this.blacklist_table.create({ guild_id: guild.id });
 			this.logger.log(`Guild "${guild.name}" (${guild.id}) is already in database. Skipping...` , [{ text: log_marker_name, colors: "function"}]);	
 			status = false;
 		} else {
+			await this.blacklist_table.create({ guild_id: guild.id });
 			this.logger.log(`Added "${guild.name}" (${guild.id}) to the blacklist.` , [{ text: log_marker_name, colors: "function"}]);	
 			status = true;
 		}
@@ -90,29 +112,16 @@ class M_BotDatabase extends M_BaseDatabase {
 		return status;
 	}
 
-	// async leaveGuild(guild) {
-	// 	const log_marker_name = 'LEAVE GUILD';
-	// 	const guild_to_leave = guild.client.guilds.cache.get(guild.id);
-	// 	if (guild_to_leave == undefined) {
-	// 		this.logger.log(`The bot currently isn't in "${guild.name}" (${guild.id})` , [{ text: log_marker_name, colors: "function"}]);
-	// 		return false;
-	// 	}else {
-	// 		if (readdirSync(`./guilds`, 'utf8').includes(guild_to_leave.id)) {
-	// 			this.logger.log(`Banishing "${guild_to_leave.name}" from guild list...` , [{ text: log_marker_name, colors: "function"}]);
-	// 			renameSync(`./guilds/${guild_to_leave.id}`, `./data/banished/${guild_to_leave.id}`);
-	// 		}
-	// 		if (this.client.Bot.guilds.has(guild_to_leave.id)) {
-	// 			this.logger.log(`Deleting "${guild_to_leave.name}" from bot...` , [{ text: log_marker_name, colors: "function"}]);
-	// 			await this.client.Bot.guilds.get(guild_to_leave.id).takedown();
-	// 			this.client.Bot.guilds.delete(guild_to_leave.id);
-	// 		}
-	// 		this.logger.log(`Leaving "${guild_to_leave.name}"...` , [{ text: log_marker_name, colors: "function"}]);
-	// 		const guild_to_leave_name = guild_to_leave.name;
-	// 		await guild_to_leave.leave();
-	// 		return guild_to_leave_name;
-	// 		return true;
-	// 	}
-	// }
+	async leaveGuild(guild_id) {
+		const log_marker_name = 'LEAVE GUILD';
+		if (!this.client.guilds.cache.has(guild_id)) return false;
+		const guild = this.client.guilds.cache.get(guild_id);
+		await guild.leave();
+		await this.client.guilds.fetch();
+		this.logger.log(`Leaving ${guild.name}...` , [{ text: log_marker_name, colors: "function"}]);
+		return true;
+	}
+
 
 	async processGuild(guild) {
 		let is_guild_cached = this.client.guilds.cache.has(guild.id);
@@ -142,6 +151,10 @@ class M_BotDatabase extends M_BaseDatabase {
 			this.logger.log(`Unbanished ${log_str_lower}.` , [{ text: log_marker_name, colors: "function"}]);	
 		};
 		const makeNewGuild = async (guild_id=guild.id) => {
+			if (!this.client.guilds.cache.has(guild_id)) {
+				this.logger.log(`The bot isn't in "${log_str_upper}," so no guild class will be made.` , [{ text: log_marker_name, colors: "function"}]);
+				return;
+			}
 			this.logger.log(`${log_str_upper} not found in file system. Making new...` , [{ text: log_marker_name, colors: "function"}]);	
 			const new_guild = new M_Guild(this.client, this.client.guilds.cache.get(guild_id));
 			await new_guild.setup();
@@ -182,13 +195,17 @@ class M_BotDatabase extends M_BaseDatabase {
 					}
 				}
 			} else {
-				if (readdirSync(`./guilds`, 'utf8').includes(guild.id)) {
+				if (readdirSync(`./data/banished`, 'utf8').includes(guild.id)) {
 					await unbanishGuild();
-				} else if (!readdirSync(`./guilds/`, 'utf8').includes(guild.id)) {
+				} else if (!readdirSync(`./guilds`, 'utf8').includes(guild.id)) {
 					await makeNewGuild();
 				} 
 			}
 			if (!this.client.Bot.guilds.has(guild.id)) {
+				if (!this.client.guilds.cache.has(guild.id)) {
+					this.logger.log(`The bot isn't in ${log_str_upper}, so no guild class will be made.` , [{ text: log_marker_name, colors: "function"}]);
+					return;
+				}	
 				const new_guild = new M_Guild(this.client, this.client.guilds.cache.get(guild.id));
 				await new_guild.setup();
 			}
@@ -250,11 +267,61 @@ class M_BotDatabase extends M_BaseDatabase {
 
 	async viewBlacklist() {
 		const blacklist = [];
-		const guilds = (await this.blacklist_table.findAll()).dataValues;
+		const guilds = (await this.blacklist_table.findAll()).map(el => el.dataValues);
+		if (guilds.length == 0) return `\`\`\`EMPTY\`\`\``;
 		for (const guild of guilds) {
 			blacklist.push({guild_id: guild.guild_id, guild_name: (this.client.guilds.cache.has(guild.guild_id)) ? this.client.guilds.cache.get(guild.guild_id) : undefined });
 		}
-		return JSON.stringify(blacklist, null, 2);
+		return `\`\`\`json\n${JSON.stringify(blacklist, null, 2)}\n\`\`\``;
+	}
+
+	async eventHandler(discord_obj, event) {
+		if (Events.ClientReady == event || Events.GuildCreate == event || Events.GuildDelete == event) {
+			this.logger.log(`Updating emoji database...`, [{ text: event.toUpperCase(), colors: "variable" }]);
+			await this.emojis_table.truncate();
+			for (const guild of this.client.guilds.cache.values()) {
+				for (const [emoji_id, emoji] of guild.emojis.cache) {
+					this.emojis_table.upsert({
+						guild_id: guild.id,
+						emoji_id: emoji_id,
+						emoji_name: emoji.name,
+						is_animated: emoji.animated
+
+					}, { where: { emoji_id: emoji_id } });
+				}
+			}
+			const new_table_size = (await this.emojis_table.findAll()).length;
+			this.logger.log(`Done! Found ${new_table_size} emojis.`, [{ text: event.toUpperCase(), colors: "variable" }]);
+		}
+		else if ([Events.GuildEmojiCreate, Events.GuildEmojiDelete, Events.GuildEmojiUpdate].includes(event)) {
+			const emoji = discord_obj
+			this.logger.log(`Updating emoji "${emoji.name}" in "${this.client.guilds.cache.get(emoji.guild.id).name}"...`, [{ text: event.toUpperCase(), colors: "variable" }]);
+			const rows = await this.emojis_table.findAll({ where: { emoji_id: emoji.id } });
+			rows.forEach(async (el) => await el.destroy());
+			this.emojis_table.insert({
+				guild_id: emoji.guild.id,
+				emoji_id: emoji.id,
+				emoji_name: emoji.name,
+				is_animated: emoji.animated
+			});
+		}
+	}
+
+	async getEmojiByName(name, id_only=false) {
+		let emoji_info = await this.emojis_table.findOne({ where: { emoji_name: name } });
+		if (emoji_info == null || emoji_info.length == 0) throw new Error(`Emoji ${name} not found!`);
+		else emoji_info = emoji_info.dataValues;
+		if (id_only) {
+			if (emoji_info.is_animated) return `<a:${emoji_info.emoji_name}:${emoji_info.emoji_id}>`;
+			else return `<:${emoji_info.emoji_name}:${emoji_info.emoji_id}>`;
+		}
+		return this.client.guilds.cache.get(emoji_info.guild_id).emojis.cache.get(emoji_info.emoji_id);
+	}
+	async getEmojiById(id) {
+		let emoji_info = await this.emojis_table.findOne({ where: { emoji_id: id } });
+		if (emoji_info == null || emoji_info.length == 0) throw new Error(`Emoji of id ${id} not found!`);
+		else emoji_info = emoji_info.dataValues;
+		return this.client.guilds.cache.get(emoji_info.guild_id).emojis.cache.get(emoji_info.emoji_id);
 	}
 };
 

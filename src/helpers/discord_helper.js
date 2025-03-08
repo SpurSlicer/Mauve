@@ -29,7 +29,7 @@ function getClientId() {
 function getUserInfoJson(interaction) {
     const info = {};
     info.age = getPrettyTime(new Date().getTime() - interaction.user.createdAt.getTime());
-    info.name = interaction.user.usename;
+    info.name = interaction.user.username;
     info.id = interaction.user.id;
     return info;
 }
@@ -294,7 +294,7 @@ async function checkId(interaction, id, type) {
  * @returns {String}
  */
 function changeBotName(interaction, name='') {
-    if (name == null || name == undefined || name == '') {
+    if (name == null || name == undefined || name == '' || name == {}) {
         name = interaction.client.user.username;
     }
     const settings = JSON.parse(readFileSync(`./guilds/${interaction.guild.id}/jsons/settings.json`, 'utf8'));

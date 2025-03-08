@@ -3,13 +3,14 @@ const { Client, Events, GatewayIntentBits, REST, Routes, ActivityType, CommandIn
 const { DefaultWebSocketManagerOptions: { identifyProperties } } = require("@discordjs/ws");
 const { getToken, getClientId, reply } = require('../helpers/discord_helper');
 const { M_Logger } = require('./logger');
-const { readFileSync, readdirSync } = require('node:fs');
+const { readFileSync, readdirSync, watch } = require('node:fs');
 const { isDev, getPrettyTime } = require('../helpers/general_helper');
 const { EventEmitter } = require('node:events');
 const { M_Guild } = require('./guild');
 const { M_BaseCommand } = require('./command');
 const { M_BaseDatabase } = require('./base_database');
 const { M_Base } = require('./base');
+const { isNumberObject } = require('node:util/types');
 
 /**
  * Mauve - a customizable general purpose discord bot.
@@ -34,6 +35,7 @@ class M_Bot extends M_Base {
                 GatewayIntentBits.GuildMembers,
                 GatewayIntentBits.MessageContent,
                 GatewayIntentBits.GuildMessages,
+                GatewayIntentBits.GuildMessageReactions
             ],
         });
 
@@ -102,6 +104,16 @@ class M_Bot extends M_Base {
         this.ack_lock = false;
 
         /**
+         * The main_config.json file listener
+         * @type {FSWatcher}
+         */
+        this.main_config_observer = null; 
+
+        this.global_lock = null; 
+        this.limited_to_test_server = null;
+        this.test_guild_id = (JSON.parse(readFileSync('./main_config.json', 'utf8'))).test_guild_id;
+
+        /**
          * General purpose logger.
          * @type {M_Logger}
          */
@@ -125,6 +137,7 @@ class M_Bot extends M_Base {
         this.logger.log(`Starting takedown...`, [{ text: log_marker_name, colors: "function"}]);
         this.logger.log(`Stopping status interval...`, [{ text: log_marker_name, colors: "function"}]);
         clearInterval(this.presence_interval);
+        if (this.main_config_observer != null) this.main_config_observer.unref();
         this.emitter.removeAllListeners();
         this.client.user.setPresence({
             status: 'online'
@@ -136,12 +149,28 @@ class M_Bot extends M_Base {
             await value.takedown();
         }
         for (const [key, value] of this.guilds) {
-            this.logger.log(`Deleting guild "${this.client.guilds.cache.get(key).name}"...`);
+            this.logger.log(`Deleting guild "${this.client.guilds.cache.get(key)?.name}"...`);
             await value.takedown();
         }
         await this.client.destroy();
         this.logger.log(`Completed in ${getPrettyTime(new Date().getTime() - initial_time, ['seconds', 'milliseconds'])}.${(code != null) ? ` Exiting with code "${code}".` : "Exiting..."}`, [{ text: log_marker_name, colors: "function"}]);
         this.logger.alert(`------------------`, { rainbowify_text: true, spacing: false });
+    }
+
+    #setupFileListeners() {
+        const log_marker_name = 'SETUP FILE LISTENERS'
+        const log_marker_name_callback = 'MAIN CONFIG OBSERVER CALLBACK';
+        this.logger.log(`Starting "main_config.json" callback...`, [{ text: log_marker_name, colors: "function"}]);
+        const main_config_observer_callback = (eventType) => {
+            if (eventType == 'rename') return;
+            const json = JSON.parse(readFileSync('./main_config.json', 'utf8'));
+            this.global_lock = json.global_lock; 
+            this.limited_to_test_server = json.limit_to_test_server;
+            this.logger.log(`Ran a "main_config.json" read.`, [{ text: log_marker_name_callback, colors: "function"}]);
+        }
+        this.main_config_observer = watch('./main_config.json', (eventType) => main_config_observer_callback(eventType));
+        main_config_observer_callback('');
+        this.logger.log(`Done!`, [{ text: log_marker_name, colors: "function"}]);
     }
 
     /**
@@ -210,7 +239,7 @@ class M_Bot extends M_Base {
     enqueueAck() {
         const log_marker_name = 'ENQUEUE ACK';
         let timer = true;
-        const timeout = setTimeout(() => { timer = false; }, 10000);
+        const timeout = setTimeout(() => { console.log("TIMEOUT"); timer = false; }, 10000);
         while (this.ack_lock && timer);
         if (!timer) {
             this.logger.error(`Occurred at ack ${this.ack}`, [{ text: log_marker_name, colors: "function"}]);
@@ -264,9 +293,20 @@ class M_Bot extends M_Base {
      * that invoked it isn't a dev.
     */    
     checkGlobalLock(interaction) {
-        const lock_Status = JSON.parse(readFileSync(`./main_config.json`, 'utf8'));
-        if (lock_Status.global_lock == true && !isDev(interaction)) {
+        if (this.global_lock == true && !isDev(interaction)) {
             throw new Error("commands are currently unavailable for use");
+        }
+    }
+
+    /**
+     * Checks whether all commands are locked for all users or not via the global lock setting in `./main_config.json`.
+     * If the user that invoked a lock check is a dev, the constraint will not be applied (i.e., they can use commands still).
+     * @param {CommandInteraction} interaction
+     * @throws Trhows an `invalid permission` error if the lock is in place and the user
+     * that invoked it isn't a dev.
+    */    
+    checkLimitedToTestServer(interaction) {        if (this.limited_to_test_server == true && ((interaction.guild != undefined && interaction.guild != null) ? (interaction.guild.id != this.test_guild_id) : true)) {
+            throw new Error("all commands are currently disabled by the developer");
         }
     }
 
@@ -280,6 +320,8 @@ class M_Bot extends M_Base {
         const log_marker_name = 'ADD GLOBAL COMMANDS';
         let command_cnt = 0;
         const command_file_names = readdirSync(dir, 'utf8');
+        const global_command_class_dir = dir.match(/.*\/([^/]*)/)[1];
+        this.client.global_command_classes.set(global_command_class_dir, []);
         for (const command_file_name of command_file_names) {
             if (command_file_name == '.gitkeep') continue;
             if (!command_file_name.includes(".")) {
@@ -290,9 +332,9 @@ class M_Bot extends M_Base {
             if (access == null || access == undefined) continue;
             const filename = command_file_name.split(/\./g)[0];
             this.logger.log(`setting global command "${filename}"...`, [{ text: log_marker_name, colors: "function"}]);
-            const command_class = await access[filename](this.client, null);
-            this.client.global_command_classes.set(filename, command_class);
-            for (const command of command_class.getCommands()) {
+            const command_set = await access[filename](this.client, null);
+            this.client.global_command_classes.set(global_command_class_dir, this.client.global_command_classes.get(global_command_class_dir).concat(command_set));
+            for (const command of command_set.getCommands()) {
                 this.client.global_commands.set(command.command_name, command);
                 command_cnt++;    
             }
@@ -355,14 +397,10 @@ class M_Bot extends M_Base {
                 let databases = new Map();
                 this.client.global_databases.forEach((value, key) => databases.set(key, value));
                 if (new_discord_obj.guild != undefined && new_discord_obj.guild != null) {
-                    new_discord_obj.guild.databases.forEach((value, key) => databases.set(key, value));
-                } else if (new_discord_obj.databases != undefined && new_discord_obj.databases != null) {
-                    new_discord_obj.databases.forEach((value, key) => databases.set(key, value));
+                    if (new_discord_obj.guild.databases != undefined) new_discord_obj.guild.databases.forEach((value, key) => databases.set(key, value));
                 }
-                for (const [key, value] of databases) {
-                    this.logger.log(`Running database callbacks...`, [{ text: event.toUpperCase(), colors: "variable" }, { text: key.toUpperCase().replaceAll(/[_-]/g, " "), colors: "database" }]);
+                for (const value of databases.values()) {
                     await value.eventHandler(discord_obj, event);
-                    this.logger.log(`Done running database callbacks`, [{ text: event.toUpperCase(), colors: "variable" }, { text: key.toUpperCase().replaceAll(/[_-]/g, " "), colors: "database" }]);           
                 }
             } catch (e) { 
                 this.logger.error(e, [{ text: event.toUpperCase(), colors: "variable" }]); 
@@ -454,7 +492,7 @@ class M_Bot extends M_Base {
          * @param {Sticker} sticker The sticker that has undergone some sort of change.
          * @param {Events} event Either `GuildEmojiCreate`, `GuildEmojiDelete`, or `GuildEmojiUpdate`.
         */            
-       const stickerCallback = async (sticker, event) => {
+        const stickerCallback = async (sticker, event) => {
             await generalEventCallback(
                 async () => {
                     this.logger.log(`Event triggered in "${sticker.guild.name}". Running...`, [{ text: event.toUpperCase(), colors: "variable" }]);        
@@ -464,6 +502,23 @@ class M_Bot extends M_Base {
         };   
         this.client.on(Events.GuildStickerCreate, async (sticker) => await stickerCallback(sticker, Events.GuildStickerCreate));
         this.client.on(Events.GuildStickerDelete, async (sticker) => await stickerCallback(sticker, Events.GuildStickerDelete));
+                /**
+         * Refreshes stickers cache for the guild the event was triggered in.
+         * @param {Sticker} sticker The sticker that has undergone some sort of change.
+         * @param {Events} event Either `GuildEmojiCreate`, `GuildEmojiDelete`, or `GuildEmojiUpdate`.
+        */            
+        const messageCallback = async (message, event) => {
+            await generalEventCallback(
+                async () => {
+                    /*await*/ this.#parseMessageForAction(message, event);
+                    // this.logger.log(`Event triggered in "${message.guild.name}". Running...`, [{ text: event.toUpperCase(), colors: "variable" }]);        
+                    // if (message.guild != null && message.guild != undefined) await message.guild.channels.cache.get(message.channelId).messages.fetch();
+                    return message;
+                }, message, event);  
+        };   
+        this.client.on(Events.MessageCreate, async (message) => await messageCallback(message, Events.MessageCreate));
+        this.client.on(Events.MessageDelete, async (message) => await messageCallback(message, Events.MessageDelete));
+        this.client.on(Events.MessageUpdate, async (message) => await messageCallback(message, Events.MessageUpdate));
         /**
          * Runs once the client is finished setting up on Discord's end. It does the following:
          *  1. Refreshes guild cache
@@ -482,6 +537,7 @@ class M_Bot extends M_Base {
                 async () => {
                     this.logger.log(`Starting setup process...`, [{ text: event.toUpperCase(), colors: "variable" }]);   
                     const initial_time = new Date().getTime();
+                    this.#setupFileListeners();
                     await this.client.guilds.fetch();
                     await this.#addGlobalCommands();
                     await this.#updateGlobalCommands();
@@ -516,6 +572,7 @@ class M_Bot extends M_Base {
                     try {
                         if (!this.status) throw new Error("Bot is being setup right now. Try again in a few seconds");
                         let command = null;
+                        this.checkLimitedToTestServer(interaction);
                         if (this.client.global_commands.get(interaction.commandName) != undefined) {
                             command = this.client.global_commands.get(interaction.commandName);
                         } else {
@@ -533,7 +590,7 @@ class M_Bot extends M_Base {
                         await command.execute(interaction);
                         this.logger.log(`Finished in  ${getPrettyTime(new Date().getTime() - initial_time, ['seconds', 'milliseconds'])}.`, [{ text: event.toUpperCase(), colors: "variable" }, ((interaction.guild == undefined) ? { text: 'DMs', colors: "fg_bright_blue" } : { text: interaction.guild.name.toUpperCase(), colors: "guild" }), { text: interaction.user.username.toUpperCase(), colors: "fg_bright_green" }, { text: interaction.commandName.toUpperCase().replaceAll(/[-_]/g, " "), colors: "command" }]);
                     } catch (e) {
-                        await reply(interaction, { content: `[ERROR] ${e}` }, true);
+                        await reply(interaction, { content: `${e}` }, true);
                         throw e;
                     }
                     return interaction;
@@ -552,6 +609,81 @@ class M_Bot extends M_Base {
         this.#startBotEventListeners();
         await this.client.login(getToken());
     } 
+
+    /*eslint no-fallthrough: "off"*/
+    async #parseMessageForAction(message, event) {
+        if (event == Events.MessageDelete) return;
+        this.logger.log(message.content, { text: 'PARSE MESSAGE FOR ACTION', colors: ['function']});
+        const dev_database = this.client.global_databases.get('dev');
+        let emoji_info = null;
+        let emoji_match = null;
+        let emoji_obj = null;
+        let prev_send_loc = null;
+        let was_something_sent = false;
+        let send = async () => {};
+        // console.log(message.content);
+        try {
+            switch (true) {
+            // "^:emoji: [yyyyy]"
+            // "^<[a]:emoji:xxxxx> [yyyyy]"
+                case message.content.startsWith('^'):
+                    emoji_match = message.content.slice(1).matchAll(/[^\s<>^]*/g);
+                    emoji_match = [...emoji_match].filter(el => el != '' && el?.[0]).map(el => el[0]);
+                    // console.log("EMOJI MATCH", emoji_match);
+                    if (emoji_match.length == 0) return;
+                    send = async () => {
+                        if (emoji_obj == null) return;
+                        if (!was_something_sent) was_something_sent = true;
+                        console.log(`Attempting to send ${emoji_obj} to ${prev_send_loc}`);
+                        try {
+                            if (prev_send_loc == null) /*await*/ [...(await message.channel.messages.fetch({limit: 2}))].pop().pop().react(emoji_obj);
+                            else /*await*/ /*console.log((await message.channel.messages.fetch(prev_send_loc.trim())))*/ (await message.channel.messages.fetch(prev_send_loc.trim())).react(emoji_obj);
+                        } catch (e) {
+                            this.logger.error(e, [{ text: `Cannot find message ${prev_send_loc}`, colors: "fun" }]); /*throw new Error('❔');*/
+                        }
+                    }
+                    for (const em of emoji_match) {
+                        emoji_info = em.match(/([\d:]+)/)?.[0];
+                        // console.log("1::::::::", em, emoji_info);
+                        if (emoji_info != undefined && emoji_info.length > 0) {
+                            if (!isNaN(parseInt(emoji_info.replaceAll(":", "").trim(), 10))) {
+                                if (emoji_info.includes(":")) {
+                                    try { const temp = await dev_database.getEmojiById(emoji_info.replaceAll(":", "").trim()); 
+                                          emoji_obj = temp; }
+                                    catch (e) {this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); /*throw new Error('❔');*/ }
+                                    await send();
+                                    continue
+                                } else {
+                                    prev_send_loc = emoji_info.trim();
+                                    continue;
+                                }
+                            }
+                        }
+                        emoji_info = em.match(/(?:\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g)?.[0];
+                        // console.log("1.5::::::", em, emoji_info);
+                        if (emoji_info != undefined && emoji_info.length > 0) {
+                            emoji_obj = emoji_info;
+                            await send();
+                            continue;
+                        }
+                        emoji_info = em.match(/[^:\s]+/)?.[0];
+                        // console.log("2::::::", em, emoji_info);
+                        if (emoji_info != undefined && emoji_info.length > 0) {
+                            try { const temp = await dev_database.getEmojiByName(emoji_info.trim(), false); 
+                                  emoji_obj = temp; }
+                            catch (e) {this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); /*throw new Error('❔');*/ }
+                            await send();
+                            continue;
+                        }
+                        if (emoji_obj != null) await send();
+                    }
+                    if (was_something_sent) await message.delete();
+                    break;
+            }
+        } catch (e) {
+            // await message.react(e.message);
+            this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); }
+    }
 }
 
 // -----------------------EXPORTS-----------------------

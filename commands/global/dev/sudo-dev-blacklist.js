@@ -62,7 +62,7 @@ module.exports = {
 									await editReply(interaction, { content: `"${guild.name}" (${guild.id}) is already whitelisted.` });
 								break;
 							case "leave":
-								status = await database.leaveGuild(guild);
+								status = await database.leaveGuild(guild.id);
 								if (status)
 									await editReply(interaction, { content: `Left "${guild.name}" (${guild.id})` });
 								else 

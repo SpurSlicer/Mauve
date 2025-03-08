@@ -26,6 +26,7 @@ module.exports = {
 					try {							
 						await deferReply(interaction, { content: "Processing..." });
 						const num_properties_removed = await cleanJsons(interaction);
+						
 						await interaction.guild.Guild.verifyOwner();
 						if (num_properties_removed < 0) await editReply(interaction, { content: `JSONs cleaned with ${Math.abs(num_properties_removed)} missing properties added back` });
 						else if (num_properties_removed == 0) await editReply(interaction, { content: `JSONs are already clean. No changes made` });

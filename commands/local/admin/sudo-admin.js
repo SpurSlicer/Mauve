@@ -62,7 +62,7 @@ module.exports = {
 								if (option.includes("remove")) {
 									if (interaction.guild.ownerId == id) throw new Error("You cannot remove the server owner.");
 									if (await this.databases.get(this.database_name).removeGeneralAdminPosition(id))
-										await editReply(interaction, { content: `Removed ${method} \`${(method == 'role') ? interaction.guild.roles.cache.get(id).name : interaction.guild.members.cache.get(id).name}\` from ${position}s:\n${await this.databases.get(command_set.resources.name_info.database_name).getAdmins(interaction)}` });
+										await editReply(interaction, { content: `Removed ${method} \`${(method == 'role') ? interaction.guild.roles.cache.get(id).name : interaction.guild.members.cache.get(id).name}\` from ${position}s:\n${await this.databases.get(this.database_name).getAdmins(interaction)}` });
 									else {
 										if (method == 'role') {
 											await editReply(interaction, { content: `The ${method} \`${interaction.guild.roles.cache.get(id).name}\` does not currently give ${position} permissions.` });

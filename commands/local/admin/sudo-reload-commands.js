@@ -24,7 +24,7 @@ module.exports = {
 					}
 					try {
 						await deferReply(interaction, { content: "Processing..." });
-						await this.guild.Guild.resetCommands();
+						await interaction.guild.Guild.resetCommands();
 						await editReply(interaction, { content: `Commands have been reloaded! Please wait a few minutes for changes to appear` });
 					} catch (e) { // Jumps here if something weird happens
 						await editReply(interaction, { content: `[ERROR] ${e.message}` });
