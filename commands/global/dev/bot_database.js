@@ -58,7 +58,7 @@ class M_BotDatabase extends M_BaseDatabase {
 				type: DataTypes.STRING,
 				allowNull: false,
 			},
-			is_animated: {
+			animated: {
 				type: DataTypes.BOOLEAN,
 				default: false,
 				allowNull: false
@@ -285,7 +285,7 @@ class M_BotDatabase extends M_BaseDatabase {
 						guild_id: guild.id,
 						emoji_id: emoji_id,
 						emoji_name: emoji.name,
-						is_animated: emoji.animated
+						animated: emoji.animated
 
 					}, { where: { emoji_id: emoji_id } });
 				}
@@ -302,7 +302,7 @@ class M_BotDatabase extends M_BaseDatabase {
 				guild_id: emoji.guild.id,
 				emoji_id: emoji.id,
 				emoji_name: emoji.name,
-				is_animated: emoji.animated
+				animated: emoji.animated
 			});
 		}
 	}
@@ -312,7 +312,7 @@ class M_BotDatabase extends M_BaseDatabase {
 		if (emoji_info == null || emoji_info.length == 0) throw new Error(`Emoji ${name} not found!`);
 		else emoji_info = emoji_info.dataValues;
 		if (id_only) {
-			if (emoji_info.is_animated) return `<a:${emoji_info.emoji_name}:${emoji_info.emoji_id}>`;
+			if (emoji_info.animated) return `<a:${emoji_info.emoji_name}:${emoji_info.emoji_id}>`;
 			else return `<:${emoji_info.emoji_name}:${emoji_info.emoji_id}>`;
 		}
 		return this.client.guilds.cache.get(emoji_info.guild_id).emojis.cache.get(emoji_info.emoji_id);

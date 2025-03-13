@@ -653,7 +653,7 @@ class M_Bot extends M_Base {
             switch (true) {
 
             // CARET REACTIOnS
-                case message.content.startsWith('^'):
+                case (message.content.startsWith('^') && !message.content.startsWith('^ ')):
                     emoji_match = message.content.slice(1).matchAll(/[^\s<>^]*/g);
                     emoji_match = [...emoji_match].filter(el => el != '' && el?.[0]).map(el => el[0]);
                     // console.log("EMOJI MATCH", emoji_match);
@@ -666,7 +666,7 @@ class M_Bot extends M_Base {
                             if (prev_send_loc == null) /*await*/ [...(await message.channel.messages.fetch({limit: 2}))].pop().pop().react(emoji_obj);
                             else /*await*/ /*console.log((await message.channel.messages.fetch(prev_send_loc.trim())))*/ (await message.channel.messages.fetch(prev_send_loc.trim())).react(emoji_obj);
                         } catch (e) {
-                            this.logger.error(e, [{ text: `Cannot find message ${prev_send_loc}`, colors: "fun" }]); /*throw new Error('❔');*/
+                            this.logger.error(e, [{ text: `Cannot find message ${prev_send_loc}`, colors: "function" }]); /*throw new Error('❔');*/
                         }
                     }
                     for (const em of emoji_match) {
@@ -677,7 +677,7 @@ class M_Bot extends M_Base {
                                 if (emoji_info.includes(":")) {
                                     try { const temp = await dev_database.getEmojiById(emoji_info.replaceAll(":", "").trim()); 
                                           emoji_obj = temp; }
-                                    catch (e) {this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); /*throw new Error('❔');*/ }
+                                    catch (e) {this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "function" }]); /*throw new Error('❔');*/ }
                                     await send();
                                     continue
                                 } else {
@@ -698,7 +698,7 @@ class M_Bot extends M_Base {
                         if (emoji_info != undefined && emoji_info.length > 0) {
                             try { const temp = await dev_database.getEmojiByName(emoji_info.trim(), false); 
                                   emoji_obj = temp; }
-                            catch (e) {this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); /*throw new Error('❔');*/ }
+                            catch (e) {this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "function" }]); /*throw new Error('❔');*/ }
                             await send();
                             continue;
                         }
@@ -711,22 +711,26 @@ class M_Bot extends M_Base {
                 case /(?:(?::[^:\s]+:)|(?:\d+))/.test(message.content):
                     if (message.member?.premiumSince != null) return;
                     checkIfNeedsWebhook = (emoji_info_v) => {
-                        const result = emoji_info_v.animated || emoji_info_v.guild_id != message?.guild?.id;
+                        const result = emoji_info_v.animated || emoji_info_v.guild.id != message?.guild?.id;
                         if (!needs_webhook && result) needs_webhook = true;
                         return result;
                     }
-                    emoji_match = [...message.content.matchAll(/(?:<?a?:(?:[^:\s]+:\d*:?>?)|(?:\d+))/g)].map(el => el[0]).filter(el => el.length > 0).reduce((acc, el) => {
+                    emoji_match = [...message.content.matchAll(/(?:<?a?:(?:[^:\s]+:(?:\d+:?)?>?)|(?:\d+))/g)].map(el => el[0]).filter(el => el.length > 0).reduce((acc, el) => {
                         if (!acc.includes(el)) acc.push(el); return acc;
                     }, []);
                     // console.log(`${message.content} passed with matches ${emoji_match}!`);
                     for (const emoji of emoji_match) {
                         try {
+                            console.log(emoji);
                             // console.log("current str:", message_content_cpy);
                             if (/<a?:[^\s:]+:\d+>/.test(emoji)) {
                                 emoji_info = await dev_database.getEmojiById(emoji.match(/\d+/)[0]);
-                                checkIfNeedsWebhook(emoji_info);
+                                emoji_res = checkIfNeedsWebhook(emoji_info);
+                                if (emoji_res) {
+                                    message_content_cpy = message_content_cpy.replaceAll(emoji, `<${(emoji_info.animated) ? "a" : ""}:${emoji_info.name}:${emoji_info.id}>`);
+                                }
                             }
-                            if (!isNaN(parseInt(emoji.replaceAll(":", "").trim(), 10))) {
+                            else if (!isNaN(parseInt(emoji.replaceAll(":", "").trim(), 10))) {
                                 emoji_info = await dev_database.getEmojiById(emoji.replaceAll(":", "").trim());
                                 emoji_res = checkIfNeedsWebhook(emoji_info);
                                 if (emoji_res) {
@@ -742,7 +746,7 @@ class M_Bot extends M_Base {
                                 // console.log(`found emoji by Name`, emoji_info.name);
                             }
                         } catch (e) {
-                           this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); /*throw new Error('❔');*/
+                           this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "function" }]); /*throw new Error('❔');*/
                         }
                     }
                     // console.log(`RESULTS: needs webhook? ${needs_webhook}`, message_content_cpy);
@@ -760,7 +764,7 @@ class M_Bot extends M_Base {
             }
         } catch (e) {
             // await message.react(e.message);
-            this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "fun" }]); }
+            this.logger.error(e, [{ text: 'PARSE MESSAGE FOR ACTION', colors: "function" }]); }
     }
     async #messageReactHandler(message_reaction, event) {
         // const message_reaction_emoji = message_reaction.emoji;
